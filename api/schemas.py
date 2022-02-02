@@ -1,5 +1,5 @@
 from typing import List, Optional
-from datetime import date, time
+from datetime import date, time, timedelta
 from pydantic import BaseModel
 
 
@@ -21,6 +21,19 @@ class FutureTransaction(FutureTransactionBase):
     class Config:
         orm_mode = True
 
+class FutureTransactionOHLC(BaseModel):
+    date: date
+    symbol: str
+    time_trunc: str
+    o: Optional[float] = None
+    h: Optional[float] = None
+    l: Optional[float] = None
+    c: Optional[float] = None
+    volume: int
+    tick: int
+
+    class Config:
+        orm_mode = True
 
 class InstitutionalTradeBase(BaseModel):
     date: date

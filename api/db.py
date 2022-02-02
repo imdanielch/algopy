@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 db_url = "postgresql://postgres:postgres@localhost:5432/futures"
 
-engine = create_engine(db_url)
+engine = create_engine(db_url, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

@@ -54,3 +54,69 @@ async def get_symbol_datetime_transactions(
     return data
 
 
+@app.get("/symbol/{sym}/{start_datetime}/{end_datetime}/{resolution}",
+        response_model=List[schemas.FutureTransactionOHLC])
+async def get_symbol_ohlc(
+            sym: str,
+            start_datetime: datetime,
+            end_datetime: datetime,
+            resolution: str,
+            db: Session = Depends(get_db)):
+    accepted_res = [
+            'second', 'minute', 'hour', 'day',
+            'week', 'month', 'quarter', 'year', 'decade']
+    if resolution in accepted_res:
+        data = crud.get_symbol_ohlc(
+                db,
+                symbol = sym,
+                start_date = start_datetime,
+                end_date = end_datetime,
+                resolution = resolution)
+    else:
+        raise HTTPException(status_code=400, detail="The requested resolution does not exist in " + str(accepted_res))
+
+    return data
+
+
+@app.get("/institution/{sym}/{start_datetime}/{end_datetime}/{resolution}")
+async def get_institution_ohlc(
+            sym: str,
+            start_datetime: datetime,
+            end_datetime: datetime,
+            resolution: str,
+            db: Session = Depends(get_db)):
+    accepted_res = ['day', 'week', 'month', 'quarter', 'year', 'decade']
+    reference_symbol = {
+            'TXF': '臺股期貨',
+            'TE': '電子期貨',
+            'TF': '金融期貨',
+            'MXF': '小型臺指期貨',
+            'ZEF': '小型電子期貨',
+            'ZFF': '臺灣50期貨',
+            'T5F': '股票期貨',
+            #'ETF': 'ETF期貨',
+            'GTF': '櫃買指數期貨',
+            'XIF': '非金電期貨',
+            'G2F': '富櫃200期貨',
+            'E4F': '臺灣永續期貨',
+            'BTF': '臺灣生技期貨',
+            'TJF': '東證期貨',
+            'SPF': '美國標普500期貨',
+            'UNF': '美國那斯達克100期貨',
+            'UDF': '美國道瓊期貨',
+            'F1F': '英國富時100期貨'
+            }
+    if resolution not in accepted_res:
+        raise HTTPException(status_code=400, detail="The requested resolution does not exist in " + str(accepted_res))
+    if sym not in reference_symbol:
+        raise HTTPException(status_code=400, detail="The requested symbol does not exist in " + str(reference_symbol))
+
+    data = crud.get_institution_ohlc(
+            db,
+            symbol = sym,
+            start_date = start_datetime,
+            end_date = end_datetime,
+            resolution = resolution)
+
+    return data
+
