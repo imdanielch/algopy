@@ -37,7 +37,15 @@ def get_symbol_datetime_transactions(
     s_time = start_date.time()
     e_date = end_date.date()
     e_time = end_date.time()
-    return db.query(models.FutureTransaction)\
+    return db.query(
+            models.FutureTransaction.id,
+            models.FutureTransaction.date,
+            models.FutureTransaction.time,
+            models.FutureTransaction.symbol,
+            models.FutureTransaction.contract_cycle,
+            models.FutureTransaction.price,
+            models.FutureTransaction.volume
+            )\
             .filter(models.FutureTransaction.symbol == symbol_filler(symbol))\
             .filter(models.FutureTransaction.date >= s_date)\
             .filter(models.FutureTransaction.time >= s_time)\

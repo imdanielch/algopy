@@ -1,8 +1,6 @@
 import os
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
-from queries import (
-        )
 from config import (
         postgres_db,
         postgres_user,

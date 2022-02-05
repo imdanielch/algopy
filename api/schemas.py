@@ -10,9 +10,6 @@ class FutureTransactionBase(BaseModel):
     time: time
     price: Optional[float] = None
     volume: int
-    front_month_price: Optional[float] = None
-    back_month_price: Optional[float] = None
-    cop: Optional[str] = ' '
 
 
 class FutureTransaction(FutureTransactionBase):
@@ -20,6 +17,13 @@ class FutureTransaction(FutureTransactionBase):
 
     class Config:
         orm_mode = True
+
+
+class FutureTransactionFull(FutureTransaction):
+    front_month_price: Optional[float] = None
+    back_month_price: Optional[float] = None
+    cop: Optional[str] = ' '
+
 
 class FutureTransactionOHLC(BaseModel):
     date: date
