@@ -1,0 +1,8 @@
+.tooltip {
+  position: absolute;
+  background-color: white;
+  text-align: justified;
+  top: 0;
+  left: 0;
+  display: none;
+}
