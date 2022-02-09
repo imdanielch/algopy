@@ -145,3 +145,12 @@ def bulk_insert_future_trade(conn, path):
     c = conn.cursor()
     with open(path, encoding = "Big5") as csvfile:
         c.copy_expert(sql, csvfile)
+
+def create_timestamp_view(conn, path):
+    sql= ('''CREATE or REPLACE VIEW timestamp_view AS
+    SELECT * FROM tw_future_transaction''')
+    SELECT tw_future_transaction.date + tw_future_transaction.time
+    FROM tw_future_transaction
+
+    c = conn.cursor()
+    c.execute(sql)

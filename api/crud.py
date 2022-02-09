@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, null
+from sqlalchemy import func, null, and_
 from sqlalchemy.sql import text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
@@ -24,8 +24,21 @@ def cycle_filler(cycle):
 
 
 def get_symbol_transactions(db: Session, symbol: str):
-    return db.query(models.FutureTransaction)\
-            .filter(models.FutureTransaction.symbol == symbol_filler(symbol)).all()
+    return db.query(
+            models.FutureTransaction.id,
+            func.CONCAT_WS('T',
+                models.FutureTransaction.date,
+                models.FutureTransaction.time)
+                .label('datetime'),
+            #models.FutureTransaction.date,
+            #models.FutureTransaction.time,
+            models.FutureTransaction.symbol,
+            models.FutureTransaction.contract_cycle,
+            models.FutureTransaction.price,
+            models.FutureTransaction.volume
+            )\
+            .filter(models.FutureTransaction.symbol == symbol_filler(symbol))\
+            .all()
 
 
 def get_symbol_datetime_transactions(
@@ -39,8 +52,12 @@ def get_symbol_datetime_transactions(
     e_time = end_date.time()
     return db.query(
             models.FutureTransaction.id,
-            models.FutureTransaction.date,
-            models.FutureTransaction.time,
+            func.CONCAT_WS('T',
+                models.FutureTransaction.date,
+                models.FutureTransaction.time)
+                .label('datetime'),
+            #models.FutureTransaction.date,
+            #models.FutureTransaction.time,
             models.FutureTransaction.symbol,
             models.FutureTransaction.contract_cycle,
             models.FutureTransaction.price,
@@ -50,7 +67,8 @@ def get_symbol_datetime_transactions(
             .filter(models.FutureTransaction.date >= s_date)\
             .filter(models.FutureTransaction.time >= s_time)\
             .filter(models.FutureTransaction.date <= e_date)\
-            .filter(models.FutureTransaction.time <= e_time).all()
+            .filter(models.FutureTransaction.time <= e_time)\
+            .all()
 
 
 def get_test(db: Session):
@@ -78,43 +96,28 @@ def get_symbol_ohlc(
         start_date: datetime,
         end_date: datetime,
         resolution: str):
-    s_date = start_date.date()
-    s_time = start_date.time()
-    e_date = end_date.date()
-    e_time = end_date.time()
+    #s_date = start_date.date()
+    #s_time = start_date.time()
+    #e_date = end_date.date()
+    #e_time = end_date.time()
 
-   # q = text(
-   #         '''
-   #         SELECT
-   #         row_to_json(t)
-   #         FROM (
-   #         SELECT
-   #         date_trunc('minute', tw_future_transaction.time) as time,
-   #         max(tw_future_transaction.price) AS h,
-   #         min(tw_future_transaction.price) AS l,
-   #         sum(tw_future_transaction.volume) AS volume,
-   #         count(tw_future_transaction.id) AS tick 
-   #         FROM tw_future_transaction 
-   #         WHERE tw_future_transaction.symbol = 'TX     ' AND
-   #         tw_future_transaction.contract_cycle = '202201     ' and
-   #         tw_future_transaction.date >= '2022-01-03' AND tw_future_transaction.time >= '08:46:00' AND
-   #         tw_future_transaction.date <= '2022-01-03' AND tw_future_transaction.time <= '08:48:00' AND
-   #         tw_future_transaction.front_month_price IS NULL
-   #         GROUP BY date_trunc('minute', tw_future_transaction.time)) t;
-   #         ''')
     if resolution in ['day', 'week', 'month','quarter', 'year', 'decade']:
         time_model = models.FutureTransaction.date
         time_q = func.to_char(func.date_trunc(resolution, time_model), 'YYYY-MM-DD').label('time_trunc')
     elif resolution in ['second', 'minute', 'hour']:
         time_model = models.FutureTransaction.time
-        time_q = func.to_char(func.date_trunc(resolution, time_model), 'HH24:MI:SS').label('time_trunc')
+        time_q = func.date_trunc(resolution, time_model).label('time_trunc')
     else:
         return None
 
     q = db.query(
-            models.FutureTransaction.date,
+            func.CONCAT_WS('T',
+                models.FutureTransaction.date,
+                time_q)
+                .label('datetime'),
+            #models.FutureTransaction.date,
             models.FutureTransaction.symbol,
-            time_q,
+            #time_q,
             func.array_agg(aggregate_order_by(models.FutureTransaction.price, models.FutureTransaction.time.asc()))[1].label('o'),
             func.max(models.FutureTransaction.price).label('h'),
             func.min(models.FutureTransaction.price).label('l'),
@@ -123,15 +126,19 @@ def get_symbol_ohlc(
             func.count(models.FutureTransaction.id).label('tick')
             )\
             .filter(models.FutureTransaction.symbol == symbol_filler(symbol))\
-            .filter(models.FutureTransaction.contract_cycle == cycle_filler(s_date.strftime('%Y%m')))\
-            .filter(models.FutureTransaction.date >= s_date)\
-            .filter(models.FutureTransaction.time >= s_time)\
-            .filter(models.FutureTransaction.date <= e_date)\
-            .filter(models.FutureTransaction.time <= e_time)\
+            .filter(models.FutureTransaction.contract_cycle == cycle_filler(start_date.strftime('%Y%m')))\
+            .filter(
+                models.FutureTransaction.date
+                + models.FutureTransaction.time >= start_date)\
+            .filter(
+                models.FutureTransaction.date
+                + models.FutureTransaction.time <= end_date)\
             .filter(models.FutureTransaction.front_month_price == null())\
-            .group_by(models.FutureTransaction.date, func.date_trunc(resolution, time_model).label('time_trunc'), models.FutureTransaction.symbol)\
+            .group_by(
+                    'datetime',
+                    func.date_trunc(resolution, time_model).label('time_trunc'),
+                    models.FutureTransaction.symbol)\
             .all()
-
     return q
 
 
@@ -275,22 +282,35 @@ def get_vsinstitution_ohlc(
                 .filter(models.InstitutionalTrade.date >= s_date)\
                 .filter(models.InstitutionalTrade.date <= e_date)\
                 .group_by(models.InstitutionalTrade.institution)\
-                .group_by(func.date_trunc(resolution, institution_time).label('time_trunc'), models.InstitutionalTrade.symbol)\
+                .group_by(func.date_trunc(resolution, institution_time)\
+                    .label('time_trunc'), models.InstitutionalTrade.symbol)\
                 .all()
     else:
         q = db.query(
                 models.InstitutionalTrade.symbol,
                 time_q,
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.long_trading, models.InstitutionalTrade.long_trading.asc()))[1].label('lo'),
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.long_trading, models.InstitutionalTrade.long_trading.desc()))[1].label('lc'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.long_trading,
+                    models.InstitutionalTrade.long_trading.asc()))[1].label('lo'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.long_trading,
+                    models.InstitutionalTrade.long_trading.desc()))[1].label('lc'),
                 func.max(models.InstitutionalTrade.long_trading).label('lh'),
                 func.min(models.InstitutionalTrade.long_trading).label('ll'),
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.short_trading, models.InstitutionalTrade.short_trading.asc()))[1].label('so'),
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.short_trading, models.InstitutionalTrade.short_trading.desc()))[1].label('sc'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.short_trading,
+                    models.InstitutionalTrade.short_trading.asc()))[1].label('so'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.short_trading,
+                    models.InstitutionalTrade.short_trading.desc()))[1].label('sc'),
                 func.max(models.InstitutionalTrade.short_trading).label('sh'),
                 func.min(models.InstitutionalTrade.short_trading).label('sl'),
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.net_trading, models.InstitutionalTrade.net_trading.asc()))[1].label('no'),
-                func.array_agg(aggregate_order_by(models.InstitutionalTrade.net_trading, models.InstitutionalTrade.net_trading.desc()))[1].label('nc'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.net_trading,
+                    models.InstitutionalTrade.net_trading.asc()))[1].label('no'),
+                func.array_agg(aggregate_order_by(
+                    models.InstitutionalTrade.net_trading,
+                    models.InstitutionalTrade.net_trading.desc()))[1].label('nc'),
                 func.max(models.InstitutionalTrade.net_trading).label('nh'),
                 func.min(models.InstitutionalTrade.net_trading).label('nl'),
                 models.InstitutionalTrade.institution,

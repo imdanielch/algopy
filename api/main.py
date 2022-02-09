@@ -2,6 +2,7 @@ from typing import List
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
 import crud, models, schemas
 from db import SessionLocal, engine
@@ -16,7 +17,18 @@ def get_db():
         yield db
     finally:
         db.close()
+origins = [
+    "http://localhost:8000",
+    "http://localhost:3000",
+    ]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
@@ -40,7 +52,7 @@ async def get_symbol_transactions(sym: str, db: Session = Depends(get_db)):
 
 # datetime ISO 8601 works in url. e.g.: 2022-01-29T14:01:42
 @app.get("/symbol/{sym}/{start_datetime}/{end_datetime}",
-        response_model=List[schemas.FutureTransaction])
+        response_model=List[schemas.FutureTransactionBTW])
 async def get_symbol_datetime_transactions(
             sym: str,
             start_datetime: datetime,
