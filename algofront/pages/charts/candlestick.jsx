@@ -92,9 +92,9 @@ export const CandleStick = (props) => {
         fill={hoverState ? "#DDD" : "white"}
         stroke={hoverState ? "#DDD" : "white"}
         d={drawBox(
-          x - 5,
+          x,
           marginTop,
-          width + 10,
+          width,
           containerHeight - marginBottom - marginTop
         )}
       />
